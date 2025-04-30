@@ -1,48 +1,55 @@
 import { Injectable } from '@nestjs/common';
 import { Task } from './task.interface';
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import { CreateTaskDto } from './dto/create-task.dto';
+import { v4 as uuidv4 } from 'uuid';
+import * as fs from 'fs-extra';
 
-
-const filePath = path.join(__dirname, '..', '..', 'tasks.json');
+const TASKS_FILE = 'tasks.json';
 
 @Injectable()
-export class TasksService {
-
-    async getTasks(): Promise<Task[]>{
-        const data = await fs.readFile(filePath, 'utf-8');
-        return JSON.parse(data);
+export class TaskService {
+    async getTasks(): Promise<Task[]> {
+        return (await fs.readJson(TASKS_FILE).catch(() => [])) as Task[];
     }
 
-    async getTaskById(id: number): Promise<Task | null> {
+    async getTask(id: string): Promise<Task> {
         const tasks = await this.getTasks();
-        return tasks.find(task => task.id === id) || null;
+        const task = tasks.find(task => task.id === id);
+        if (!task) {
+            throw new Error(`Task with id ${id} not found`);
+        }
+        return task;
     }
-    async createTask(newTask: Task): Promise<Task> {
+
+    async createTask(dto: CreateTaskDto): Promise<Task> {
         const tasks = await this.getTasks();
-        newTask.id = tasks.length ? Math.max(...tasks.map(task => task.id)) + 1 : 1;
+        const newTask: Task = {
+            id: uuidv4(),
+            taskName: dto.taskName,
+            description: dto.description,
+            createdAt: new Date().toISOString(),
+        };
         tasks.push(newTask);
-        await fs.writeFile(filePath, JSON.stringify(tasks, null, 2));
+        await fs.writeJson(TASKS_FILE, tasks, { spaces: 2 });
         return newTask;
     }
-    async updateTask(id: number, updatedTask: Partial<Task>): Promise<Task | null> {
+
+    async updateTask(id: string, dto: CreateTaskDto): Promise<Task> {
         const tasks = await this.getTasks();
-        const taskIndex = tasks.findIndex(task => task.id === id);
-        if (taskIndex === -1) return null;
-        tasks[taskIndex] = { ...tasks[taskIndex], ...updatedTask };
-        await fs.writeFile(filePath, JSON.stringify(tasks, null, 2));
-        return tasks[taskIndex];
+        const index = tasks.findIndex(task => task.id === id);
+        if (index !== -1) {
+            tasks[index] = { ...tasks[index], ...dto };
+            await fs.writeJson(TASKS_FILE, tasks, { spaces: 2 });
+            return tasks[index];
+        }
+        throw new Error(`Task with id ${id} not found`);
     }
-    async deleteTask(id: number): Promise<boolean> {
-        const tasks = await this.getTasks();
-        const taskIndex = tasks.findIndex(task => task.id === id);
-        if (taskIndex === -1) return false;
-        tasks.splice(taskIndex, 1);
-        await fs.writeFile(filePath, JSON.stringify(tasks, null, 2));
-        return true;
-    }
-    async deleteAllTasks(): Promise<boolean> {
-        await fs.writeFile(filePath, JSON.stringify([], null, 2));
-        return true;            
+
+    async deleteTask(id: string): Promise<boolean> {
+        let tasks = await this.getTasks();
+        const initialLength = tasks.length;
+        tasks = tasks.filter(task => task.id !== id);
+        await fs.writeJson(TASKS_FILE, tasks, { spaces: 2 });
+        return tasks.length !== initialLength;
     }
 }

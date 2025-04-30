@@ -1,36 +1,33 @@
-import { Body, Controller, Delete, Get, NotFoundException, Param, Post, Put } from '@nestjs/common';
-import { TasksService } from './tasks.service';
-import { Task } from './task.interface';
+import { Controller, Get, Post, Body, Param, Put, Delete } from '@nestjs/common';
+import { TaskService } from './tasks.service';
+import { CreateTaskDto } from './dto/create-task.dto';
+
 @Controller('tasks')
 export class TasksController {
-    constructor(private readonly tasksService: TasksService) { }
+    constructor(private readonly taskService: TaskService) { }
 
     @Get()
     getAll() {
-        return this.tasksService.getTasks();
+        return this.taskService.getTasks();
     }
 
     @Get(':id')
-    async getTaskById(@Param('id') id: string) {
-        const task = await this.tasksService.getTaskById(+id);
-        if (!task) throw new NotFoundException(`Task with id ${id} not found`);
-        return task;
+    getOne(@Param('id') id: string) {
+        return this.taskService.getTask(id);
     }
 
     @Post()
-    createTask(@Body() task: Task) {
-        return this.tasksService.createTask(task);
+    create(@Body() dto: CreateTaskDto) {
+        return this.taskService.createTask(dto);
     }
 
     @Put(':id')
-    update(@Param('id') id: string, @Body() task: Partial<Task>) {
-        return this.tasksService.updateTask(+id, task);
+    update(@Param('id') id: string, @Body() dto: CreateTaskDto) {
+        return this.taskService.updateTask(id, dto);
     }
 
     @Delete(':id')
     delete(@Param('id') id: string) {
-        return this.tasksService.deleteTask(+id);
+        return this.taskService.deleteTask(id);
     }
-
 }
-
