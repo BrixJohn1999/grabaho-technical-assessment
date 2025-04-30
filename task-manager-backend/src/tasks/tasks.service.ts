@@ -3,13 +3,22 @@ import { Task } from './task.interface';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs-extra';
+import { join } from 'path';
 
-const TASKS_FILE = 'tasks.json';
+
+const TASKS_FILE = join(process.cwd(), 'tasks.json');
 
 @Injectable()
 export class TaskService {
+    private async ensureFileExists(): Promise<void> {
+        const exists = await fs.pathExists(TASKS_FILE);
+        if (!exists) {
+            await fs.writeJson(TASKS_FILE, []);
+        }
+    }
     async getTasks(): Promise<Task[]> {
-        return (await fs.readJson(TASKS_FILE).catch(() => [])) as Task[];
+        await this.ensureFileExists();
+        return await fs.readJson(TASKS_FILE);
     }
 
     async getTask(id: string): Promise<Task> {
